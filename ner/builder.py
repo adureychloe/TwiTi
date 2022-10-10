@@ -28,28 +28,29 @@ from ner import (
 def load_data(data_path):
     data_path = Path(data_path)
     rows = []
-    sent_idx = 1
+    sent_idx = 1  # sentence index
     for data_file in data_path.glob("*.json"):
-        with data_file.open() as f:
+        with data_file.open(encoding='utf-8') as f:
             data = json.load(f)
             for labeled_word in data:
                 rows.append([sent_idx, labeled_word[0], labeled_word[1]])
-                if labeled_word[0] == ".":
-                    sent_idx += 1
+                if labeled_word[0] == ".": # end of a sentence
+                    sent_idx += 1  # next sentence
     return pd.DataFrame(rows, columns=["sentence", "word", "label"])
 
 
 def getter(df):
+    '''get list of sentence and entity'''
     agg_func = lambda s: [
         (w, l)
         for w, l in zip(s["word"].values.tolist(), s["label"].values.tolist())
     ]
-    grouped = df.groupby("sentence").apply(agg_func)
+    grouped = df.groupby("sentence").apply(agg_func)  # (index, [(word, label)])
     grouped_words = [s for s in grouped]
 
     sentences = [" ".join([s[0] for s in sent]) for sent in grouped_words]
     labels = [
-        [(s[0], s[1]) for s in sent if s[1] != "O"] for sent in grouped_words
+        [(s[0], s[1]) for s in sent if s[1] != "o"] for sent in grouped_words
     ]
 
     return list(zip(sentences, labels))
@@ -57,8 +58,8 @@ def getter(df):
 
 # Process sentences
 def process_terms(item):
-    string = item[0][:-1] if item[0][-1] == "." else item[0]
-    string = string.replace("[.]", ".")
+    string = item[0][:-1] if item[0][-1] == "." else item[0] # sentence without period
+    string = string.replace("[.]", ".") # defang
 
     # replace url into urlterm
     urls = [m.group(0) for m in regex_url.finditer(string)]
@@ -248,7 +249,7 @@ def build_model(full_fine_tunning=True, batch_size=32, epochs=3):
 
     attention_masks = []
     for seq in input_ids_pad:
-        mask = [float(i > 0) for i in seq]
+        mask = [float(i > 0) for i in seq]  # mask sentence without padding '0'
         attention_masks.append(mask)
 
     train_data = TensorDataset(
@@ -317,6 +318,17 @@ def build_model(full_fine_tunning=True, batch_size=32, epochs=3):
         for step, batch in enumerate(train_dataloader):
             batch = tuple(t.to(device) for t in batch)
             b_input_ids, b_input_masks, b_labels = batch
+
+            ########## Bug fix code ##########
+            b_input_ids = b_input_ids.type(torch.LongTensor)
+            b_input_masks = b_input_masks.type(torch.LongTensor)
+            b_labels = b_labels.type(torch.LongTensor)
+
+            b_input_ids = b_input_ids.to(device)
+            b_input_masks = b_input_masks.to(device)
+            b_labels = b_labels.to(device)
+            ##################################
+
 
             logits = model(
                 b_input_ids, token_type_ids=None, attention_mask=b_input_masks

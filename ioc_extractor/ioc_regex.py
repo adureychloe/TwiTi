@@ -2,12 +2,13 @@
 # (https://pypi.org/project/ioc-finder/)
 
 import re
-from ioc_finder.data_lists import tlds, schemes
-from ioc_finder.ioc_grammars import root_key
+from ioc_finder.data import tlds, schemes
+from ioc_finder.ioc_grammars import root_key, root_key_list
 from typing import List
 
 
 def _or(li: List) -> str:
+    '''list to (?: )'''
     start = '(?:'
     end = ')'
     res = start
@@ -15,7 +16,7 @@ def _or(li: List) -> str:
         #res += '(?:' + elem + ')|'
         res += elem + '|'
     if res[-1] == '|':
-        res = res[:-1]
+        res = res[:-1]  # 最后一位不要是'|'
     res += end
     return res
 
@@ -41,10 +42,12 @@ emailaccountprohibitedchars = '(),:;<>@[\\]'
 
 schemes.append('tcp')
 schemes = _or([re.escape(scheme) for scheme in schemes])
+tlds = list(tlds)
 tlds.append('site')
 tlds.append('tk')
 tlds = _or([re.escape(tld) for tld in tlds])
-root_key = _or([re.escape(str(rootkey)[1:-1])for rootkey in root_key.exprs])
+# root_key = _or([re.escape(str(rootkey)[1:-1])for rootkey in root_key.exprs])
+root_key = _or([re.escape(str(rootkey))for rootkey in root_key_list])
 extensions = [
     'exe', 'dll', 'bat', 'sys', 'htm', 'html', 'js', 'jar', 'jpg', 'png', 'vb', 'scr', 'pif', 'chm', 'zip', 'rar',
     'cab', 'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'swf', 'gif', 'sh', 'hta', 'vbe', 'vbs', 'php', 'txt',
